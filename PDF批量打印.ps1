@@ -34,8 +34,10 @@ function Set-UIForPrinting {
     $btnCancel.Enabled = $Printing
     $btnBrowse.Enabled = -not $Printing
     $comboPrinter.Enabled = -not $Printing
-    $radioColor.Enabled = -not $Printing
-    $radioBW.Enabled = -not $Printing
+    $panelColor.Enabled = -not $Printing
+    $panelDuplex.Enabled = -not $Printing
+    $numCopies.Enabled = -not $Printing
+    $btnSetCopies.Enabled = -not $Printing
 }
 
 function Set-AllChecked {
@@ -76,32 +78,88 @@ $labelCount = Add-UIControl -Type Label -X 165 -Y 84 -W 100 -H 23 -Text "已选 
 $labelCount.ForeColor = [System.Drawing.Color]::Gray
 
 $labelColorMode = Add-UIControl -Type Label -X 280 -Y 84 -W 45 -H 23 -Text "颜色："
-$radioColor = Add-UIControl -Type RadioButton -X 325 -Y 82 -W 55 -H 25 -Text "彩色"
-$radioColor.Checked = $true
-$radioBW = Add-UIControl -Type RadioButton -X 385 -Y 82 -W 55 -H 25 -Text "黑白"
 
-$listView = Add-UIControl -Type ListView -X 15 -Y 110 -W 560 -H 280
+$panelColor = New-Object System.Windows.Forms.Panel
+$panelColor.Location = New-Object System.Drawing.Point(320, 78)
+$panelColor.Size = New-Object System.Drawing.Size(120, 27)
+$panelColor.BorderStyle = "None"
+$panelColor.BackColor = [System.Drawing.Color]::Transparent
+$form.Controls.Add($panelColor)
+
+$radioColor = New-Object System.Windows.Forms.RadioButton
+$radioColor.Location = New-Object System.Drawing.Point(5, 2)
+$radioColor.Size = New-Object System.Drawing.Size(55, 25)
+$radioColor.Text = "彩色"
+$radioColor.Checked = $true
+$panelColor.Controls.Add($radioColor)
+
+$radioBW = New-Object System.Windows.Forms.RadioButton
+$radioBW.Location = New-Object System.Drawing.Point(60, 2)
+$radioBW.Size = New-Object System.Drawing.Size(55, 25)
+$radioBW.Text = "黑白"
+$panelColor.Controls.Add($radioBW)
+
+$labelCopies = Add-UIControl -Type Label -X 450 -Y 84 -W 40 -H 23 -Text "份数："
+$numCopies = New-Object System.Windows.Forms.NumericUpDown
+$numCopies.Location = New-Object System.Drawing.Point(490, 82)
+$numCopies.Size = New-Object System.Drawing.Size(55, 23)
+$numCopies.Minimum = 1
+$numCopies.Maximum = 99
+$numCopies.Value = 1
+$form.Controls.Add($numCopies)
+
+$btnSetCopies = Add-UIControl -Type Button -X 548 -Y 82 -W 27 -H 23 -Text "✓"
+$btnSetCopies.FlatStyle = "Flat"
+$btnSetCopies.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 215)
+$btnSetCopies.ForeColor = [System.Drawing.Color]::White
+$toolTip = New-Object System.Windows.Forms.ToolTip
+$toolTip.SetToolTip($btnSetCopies, "应用份数到选中的文件")
+
+$labelDuplex = Add-UIControl -Type Label -X 15 -Y 112 -W 45 -H 23 -Text "纸面："
+
+$panelDuplex = New-Object System.Windows.Forms.Panel
+$panelDuplex.Location = New-Object System.Drawing.Point(55, 108)
+$panelDuplex.Size = New-Object System.Drawing.Size(120, 27)
+$panelDuplex.BorderStyle = "None"
+$panelDuplex.BackColor = [System.Drawing.Color]::Transparent
+$form.Controls.Add($panelDuplex)
+
+$radioSimplex = New-Object System.Windows.Forms.RadioButton
+$radioSimplex.Location = New-Object System.Drawing.Point(5, 2)
+$radioSimplex.Size = New-Object System.Drawing.Size(55, 25)
+$radioSimplex.Text = "单面"
+$radioSimplex.Checked = $true
+$panelDuplex.Controls.Add($radioSimplex)
+
+$radioDuplex = New-Object System.Windows.Forms.RadioButton
+$radioDuplex.Location = New-Object System.Drawing.Point(60, 2)
+$radioDuplex.Size = New-Object System.Drawing.Size(55, 25)
+$radioDuplex.Text = "双面"
+$panelDuplex.Controls.Add($radioDuplex)
+
+$listView = Add-UIControl -Type ListView -X 15 -Y 138 -W 560 -H 260
 $listView.View = "Details"
 $listView.FullRowSelect = $true
 $listView.CheckBoxes = $true
 $listView.GridLines = $true
-$listView.Columns.Add("文件名", 300)
-$listView.Columns.Add("大小", 100)
+$listView.Columns.Add("文件名", 260)
+$listView.Columns.Add("大小", 80)
+$listView.Columns.Add("份数", 60)
 $listView.Columns.Add("状态", 140)
 
-$progressBar = Add-UIControl -Type ProgressBar -X 15 -Y 398 -W 560 -H 23
+$progressBar = Add-UIControl -Type ProgressBar -X 15 -Y 405 -W 560 -H 23
 $progressBar.Style = "Continuous"
 
-$labelStatus = Add-UIControl -Type Label -X 15 -Y 428 -W 560 -H 23 -Text "请选择包含 PDF 文件的文件夹"
+$labelStatus = Add-UIControl -Type Label -X 15 -Y 435 -W 560 -H 23 -Text "请选择包含 PDF 文件的文件夹"
 $labelStatus.ForeColor = [System.Drawing.Color]::DarkBlue
 
-$btnPrint = Add-UIControl -Type Button -X 370 -Y 455 -W 100 -H 30 -Text "开始打印"
+$btnPrint = Add-UIControl -Type Button -X 370 -Y 460 -W 100 -H 30 -Text "开始打印"
 $btnPrint.Enabled = $false
 $btnPrint.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 215)
 $btnPrint.ForeColor = [System.Drawing.Color]::White
 $btnPrint.FlatStyle = "Flat"
 
-$btnCancel = Add-UIControl -Type Button -X 480 -Y 455 -W 95 -H 30 -Text "取消"
+$btnCancel = Add-UIControl -Type Button -X 480 -Y 460 -W 95 -H 30 -Text "取消"
 $btnCancel.Enabled = $false
 
 # ============ 全局变量 ============
@@ -135,6 +193,7 @@ function Load-PdfFiles {
     foreach ($file in $files) {
         $item = New-Object System.Windows.Forms.ListViewItem($file.Name)
         $item.SubItems.Add((Format-FileSize $file.Length))
+        $item.SubItems.Add("1")
         $item.SubItems.Add("等待打印")
         $item.Checked = $true
         $item.Tag = $file.FullName
@@ -150,6 +209,7 @@ function Load-PdfFiles {
 # ============ 事件处理 ============
 
 $btnBrowse.Add_Click({
+    if ($script:isPrinting) { return }
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     $dialog.Description = "选择包含 PDF 文件的文件夹"
     $dialog.ShowNewFolderButton = $false
@@ -157,6 +217,9 @@ $btnBrowse.Add_Click({
     if ($dialog.ShowDialog() -eq "OK") {
         $textFolder.Text = $dialog.SelectedPath
         Load-PdfFiles -folderPath $dialog.SelectedPath
+        $progressBar.Value = 0
+        $labelStatus.Text = "已加载文件夹，准备打印"
+        $labelStatus.ForeColor = [System.Drawing.Color]::DarkBlue
     }
 })
 
@@ -165,6 +228,22 @@ $btnDeselectAll.Add_Click({ Set-AllChecked -Checked $false })
 
 $listView.Add_ItemCheck({
     $form.BeginInvoke([Action]{ Update-FileCount }) | Out-Null
+})
+
+# 设置份数
+$btnSetCopies.Add_Click({
+    $copies = [int]$numCopies.Value
+    foreach ($item in $listView.SelectedItems) {
+        $item.SubItems[2].Text = $copies.ToString()
+    }
+    if ($listView.SelectedItems.Count -eq 0) {
+        # 如果没有选中项，则设置所有勾选的文件
+        foreach ($item in $listView.Items) {
+            if ($item.Checked) {
+                $item.SubItems[2].Text = $copies.ToString()
+            }
+        }
+    }
 })
 
 # 开始打印
@@ -192,6 +271,7 @@ $btnPrint.Add_Click({
                 Index    = $item.Index
                 FileName = $item.Text
                 FilePath = $item.Tag
+                Copies   = [int]$item.SubItems[2].Text
             })
         }
     }
@@ -203,15 +283,24 @@ $btnPrint.Add_Click({
 
     # 确认打印
     $colorMode = if ($radioBW.Checked) { "黑白" } else { "彩色" }
+    $duplexMode = if ($radioDuplex.Checked) { "双面" } else { "单面" }
+    $totalCopies = ($printJobs | ForEach-Object { $_.Copies } | Measure-Object -Sum).Sum
     $confirm = [System.Windows.Forms.MessageBox]::Show(
-        "即将发送 $($printJobs.Count) 个文件到打印机：`n$selectedPrinter`n颜色模式：$colorMode`n`n确认开始打印？",
+        "即将发送 $($printJobs.Count) 个文件（共 $totalCopies 份）到打印机：`n$selectedPrinter`n颜色模式：$colorMode`n纸面模式：$duplexMode`n`n确认开始打印？",
         "确认", "YesNo", "Question"
     )
     if ($confirm -ne "Yes") { return }
 
     # 禁用 UI
     $script:isPrinting = $true
-    Set-UIForPrinting -Printing $true
+    $btnPrint.Enabled = $false
+    $btnCancel.Enabled = $true
+    $btnBrowse.Enabled = $false
+    $comboPrinter.Enabled = $false
+    $panelColor.Enabled = $false
+    $panelDuplex.Enabled = $false
+    $numCopies.Enabled = $false
+    $btnSetCopies.Enabled = $false
     $progressBar.Maximum = $printJobs.Count
     $progressBar.Value = 0
 
@@ -220,6 +309,7 @@ $btnPrint.Add_Click({
 
     # 构建打印参数
     $useBW = $radioBW.Checked
+    $useDuplex = $radioDuplex.Checked
     $printerName = $selectedPrinter
     $sumatra = $script:SumatraPath
     $delayMs = $script:JobDelayMs
@@ -232,7 +322,7 @@ $btnPrint.Add_Click({
     $ps.Runspace = $runspace
 
     $ps.AddScript({
-        param($jobs, $form, $listView, $progressBar, $labelStatus, $cancelFlag, $printer, $bw, $sumatraExe, $delay)
+        param($jobs, $form, $listView, $progressBar, $labelStatus, $cancelFlag, $printer, $bw, $duplex, $sumatraExe, $delay)
 
         $total = $jobs.Count
         $completed = 0
@@ -251,14 +341,17 @@ $btnPrint.Add_Click({
             # 更新状态：打印中
             $idx = $job.Index
             $form.Invoke([Action]{
-                $listView.Items[$idx].SubItems[2].Text = "打印中..."
+                $listView.Items[$idx].SubItems[3].Text = "打印中..."
                 $listView.Items[$idx].ForeColor = [System.Drawing.Color]::Blue
-                $labelStatus.Text = "正在打印: $($job.FileName)"
+                $labelStatus.Text = "正在打印: $($job.FileName) ($($job.Copies)份)"
                 $labelStatus.ForeColor = [System.Drawing.Color]::DarkBlue
             })
 
             # 执行打印
-            $printSettings = if ($bw) { "1x,monochrome" } else { "1x,color" }
+            $copies = if ($job.Copies -gt 1) { "$($job.Copies)x" } else { "1x" }
+            $colorSetting = if ($bw) { "monochrome" } else { "color" }
+            $duplexSetting = if ($duplex) { "duplex" } else { "simplex" }
+            $printSettings = "$copies,$colorSetting,$duplexSetting"
             $arguments = "-print-to `"$printer`" -print-settings `"$printSettings`" `"$($job.FilePath)`""
             $errorMsg = ""
 
@@ -282,10 +375,10 @@ $btnPrint.Add_Click({
             # 更新状态：结果
             $form.Invoke([Action]{
                 if ($success) {
-                    $listView.Items[$idx].SubItems[2].Text = "已发送"
+                    $listView.Items[$idx].SubItems[3].Text = "已发送"
                     $listView.Items[$idx].ForeColor = [System.Drawing.Color]::DarkGreen
                 } else {
-                    $listView.Items[$idx].SubItems[2].Text = "失败"
+                    $listView.Items[$idx].SubItems[3].Text = "失败"
                     $listView.Items[$idx].ForeColor = [System.Drawing.Color]::Red
                 }
                 $progressBar.Value = $completed
@@ -295,35 +388,19 @@ $btnPrint.Add_Click({
             Start-Sleep -Milliseconds $delay
         }
 
-        # 完成
-        $form.Invoke([Action]{
-            $script:isPrinting = $false
-            Set-UIForPrinting -Printing $false
-
-            if (-not $cancelFlag.Cancelled) {
-                if ($failed -eq 0) {
-                    $labelStatus.Text = "打印完成！共 $completed 个文件已发送到打印机"
-                    $labelStatus.ForeColor = [System.Drawing.Color]::DarkGreen
-                    [System.Windows.Forms.MessageBox]::Show(
-                        "打印完成！`n`n共 $completed 个文件已发送到打印机。",
-                        "完成", "OK", "Information"
-                    )
-                } else {
-                    $labelStatus.Text = "打印完成，$failed 个文件失败"
-                    $labelStatus.ForeColor = [System.Drawing.Color]::OrangeRed
-                    [System.Windows.Forms.MessageBox]::Show(
-                        "打印完成，但有 $failed 个文件失败。`n成功: $($completed - $failed) / $total",
-                        "完成", "OK", "Warning"
-                    )
-                }
-            }
-        })
+        # 完成 - 保存结果供主线程使用
+        $script:printResult = @{
+            Cancelled = $cancelFlag.Cancelled
+            Completed = $completed
+            Failed    = $failed
+            Total     = $total
+        }
 
         # 清理资源
         $psInner = [powershell]::Create()
         $psInner.Runspace = $runspace
         $psInner.Dispose()
-    }).AddArgument($printJobs).AddArgument($form).AddArgument($listView).AddArgument($progressBar).AddArgument($labelStatus).AddArgument($cancelFlag).AddArgument($printerName).AddArgument($useBW).AddArgument($sumatra).AddArgument($delayMs)
+    }).AddArgument($printJobs).AddArgument($form).AddArgument($listView).AddArgument($progressBar).AddArgument($labelStatus).AddArgument($cancelFlag).AddArgument($printerName).AddArgument($useBW).AddArgument($useDuplex).AddArgument($sumatra).AddArgument($delayMs)
 
     # 启动异步执行
     $handle = $ps.BeginInvoke()
@@ -338,6 +415,39 @@ $btnPrint.Add_Click({
             try { $ps.EndInvoke($handle) } catch {}
             $ps.Dispose()
             $runspace.Dispose()
+
+            # 恢复 UI（直接操作控件，避免函数作用域问题）
+            $script:isPrinting = $false
+            $btnPrint.Enabled = ($listView.CheckedItems.Count -gt 0)
+            $btnCancel.Enabled = $false
+            $btnBrowse.Enabled = $true
+            $comboPrinter.Enabled = $true
+            $panelColor.Enabled = $true
+            $panelDuplex.Enabled = $true
+            $numCopies.Enabled = $true
+            $btnSetCopies.Enabled = $true
+
+            if ($script:printResult) {
+                $r = $script:printResult
+                if (-not $r.Cancelled) {
+                    if ($r.Failed -eq 0) {
+                        $labelStatus.Text = "打印完成！共 $($r.Completed) 个文件已发送到打印机"
+                        $labelStatus.ForeColor = [System.Drawing.Color]::DarkGreen
+                        [System.Windows.Forms.MessageBox]::Show(
+                            "打印完成！`n`n共 $($r.Completed) 个文件已发送到打印机。",
+                            "完成", "OK", "Information"
+                        )
+                    } else {
+                        $labelStatus.Text = "打印完成，$($r.Failed) 个文件失败"
+                        $labelStatus.ForeColor = [System.Drawing.Color]::OrangeRed
+                        [System.Windows.Forms.MessageBox]::Show(
+                            "打印完成，但有 $($r.Failed) 个文件失败。`n成功: $($r.Completed - $r.Failed) / $($r.Total)",
+                            "完成", "OK", "Warning"
+                        )
+                    }
+                }
+                $script:printResult = $null
+            }
         }
     })
     $cleanupTimer.Start()
