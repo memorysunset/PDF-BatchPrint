@@ -1,19 +1,11 @@
 ﻿Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# 加载 System.Drawing.Printing
-try {
-    Add-Type -AssemblyName System.Drawing.Printing
-} catch {
-    # 如果加载失败，尝试从 .NET Framework 加载
-    Add-Type -Path "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Drawing.dll" -ErrorAction SilentlyContinue
-}
-
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 # ============ 主窗口 ============
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "中国公文生成器"
+$form.Text = "中国公文生成器 v1.2"
 $form.Size = New-Object System.Drawing.Size(700, 620)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
@@ -183,7 +175,7 @@ $txtAttach.Location = New-Object System.Drawing.Point(80, 417)
 $txtAttach.Size = New-Object System.Drawing.Size(590, 23)
 $form.Controls.Add($txtAttach)
 
-# ============ 抄送机关 ============
+# ============ 联系人 ============
 $lblContact = New-Object System.Windows.Forms.Label
 $lblContact.Location = New-Object System.Drawing.Point(15, 450)
 $lblContact.Size = New-Object System.Drawing.Size(60, 23)
@@ -206,6 +198,7 @@ $txtPhone.Location = New-Object System.Drawing.Point(375, 447)
 $txtPhone.Size = New-Object System.Drawing.Size(200, 23)
 $form.Controls.Add($txtPhone)
 
+# ============ 抄送机关 ============
 $lblCC = New-Object System.Windows.Forms.Label
 $lblCC.Location = New-Object System.Drawing.Point(15, 480)
 $lblCC.Size = New-Object System.Drawing.Size(60, 23)
@@ -218,26 +211,17 @@ $txtCC.Size = New-Object System.Drawing.Size(590, 23)
 $form.Controls.Add($txtCC)
 
 # ============ 按钮 ============
-$btnGeneratePDF = New-Object System.Windows.Forms.Button
-$btnGeneratePDF.Location = New-Object System.Drawing.Point(150, 520)
-$btnGeneratePDF.Size = New-Object System.Drawing.Size(120, 35)
-$btnGeneratePDF.Text = "生成PDF"
-$btnGeneratePDF.BackColor = [System.Drawing.Color]::FromArgb(200, 30, 30)
-$btnGeneratePDF.ForeColor = [System.Drawing.Color]::White
-$btnGeneratePDF.FlatStyle = "Flat"
-$form.Controls.Add($btnGeneratePDF)
-
-$btnGenerateHTML = New-Object System.Windows.Forms.Button
-$btnGenerateHTML.Location = New-Object System.Drawing.Point(280, 520)
-$btnGenerateHTML.Size = New-Object System.Drawing.Size(120, 35)
-$btnGenerateHTML.Text = "生成HTML"
-$btnGenerateHTML.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 215)
-$btnGenerateHTML.ForeColor = [System.Drawing.Color]::White
-$btnGenerateHTML.FlatStyle = "Flat"
-$form.Controls.Add($btnGenerateHTML)
+$btnGenerate = New-Object System.Windows.Forms.Button
+$btnGenerate.Location = New-Object System.Drawing.Point(220, 520)
+$btnGenerate.Size = New-Object System.Drawing.Size(120, 35)
+$btnGenerate.Text = "生成公文"
+$btnGenerate.BackColor = [System.Drawing.Color]::FromArgb(200, 30, 30)
+$btnGenerate.ForeColor = [System.Drawing.Color]::White
+$btnGenerate.FlatStyle = "Flat"
+$form.Controls.Add($btnGenerate)
 
 $btnClear = New-Object System.Windows.Forms.Button
-$btnClear.Location = New-Object System.Drawing.Point(410, 520)
+$btnClear.Location = New-Object System.Drawing.Point(360, 520)
 $btnClear.Size = New-Object System.Drawing.Size(120, 35)
 $btnClear.Text = "清空重填"
 $btnClear.FlatStyle = "Flat"
@@ -282,251 +266,16 @@ function Generate-Document {
     # 构建文号
     $docNumStr = ""
     if (-not [string]::IsNullOrWhiteSpace($docPrefix) -and -not [string]::IsNullOrWhiteSpace($docNum)) {
-        $docNumStr = "$docPrefix[$docYear]$docNum号"
-    }
-
-    # 处理正文段落
-    $bodyLines = $body -replace "`r`n", "`n"
-    $paragraphs = $bodyLines -split "`n"
-
-    # 保存文件
-    $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
-    $saveDialog.Filter = "PDF文件|*.pdf|所有文件|*.*"
-    $saveDialog.FileName = "公文_$title"
-    $saveDialog.DefaultExt = "pdf"
-
-    if ($saveDialog.ShowDialog() -eq "OK") {
-        $outputPath = $saveDialog.FileName
-
-        # 使用 PrintDocument 生成 PDF
-        $printDoc = New-Object System.Drawing.Printing.PrintDocument
-        $printDoc.PrinterSettings.PrinterName = "Microsoft Print to PDF"
-        $printDoc.PrinterSettings.PrintToFile = $true
-        $printDoc.PrinterSettings.PrintFileName = $outputPath
-
-        # 页面设置 (A4, 单位：百分之一英寸)
-        $printDoc.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize("A4", 827, 1169)
-        $printDoc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(110, 102, 146, 138)  # 左28mm 右26mm 上37mm 下35mm
-
-        # 当前绘制位置
-        $script:currentY = 0
-        $script:currentParagraph = 0
-        $script:isFirstPage = $true
-
-        $printDoc.add_PrintPage({
-            param($sender, $e)
-            $g = $e.Graphics
-            $leftMargin = $e.MarginBounds.Left
-            $topMargin = $e.MarginBounds.Top
-            $rightMargin = $e.MarginBounds.Right
-            $bottomMargin = $e.MarginBounds.Bottom
-            $pageWidth = $e.MarginBounds.Width
-
-            if ($script:isFirstPage) {
-                $script:isFirstPage = $false
-                $script:currentY = $topMargin
-
-                # 密级和紧急程度
-                if ($secret -ne "无" -or $urgent -ne "无") {
-                    $secretText = ""
-                    if ($secret -ne "无") { $secretText += "★ $secret  " }
-                    if ($urgent -ne "无") { $secretText += "[$urgent]" }
-                    $secretFont = New-Object System.Drawing.Font("FangSong", 14)
-                    $g.DrawString($secretText, $secretFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
-                    $script:currentY += 30
-                }
-
-                # 发文机关标志（红色，居中）
-                $senderFont = New-Object System.Drawing.Font("SimSun", 36, [System.Drawing.FontStyle]::Bold)
-                $senderSize = $g.MeasureString($sender, $senderFont)
-                $senderX = $leftMargin + ($pageWidth - $senderSize.Width) / 2
-                $g.DrawString($sender, $senderFont, [System.Drawing.Brushes]::Red, $senderX, $script:currentY)
-                $script:currentY += $senderSize.Height + 10
-
-                # 红线（一细一粗）
-                $pen1 = New-Object System.Drawing.Pen([System.Drawing.Color]::Red, 1)
-                $pen2 = New-Object System.Drawing.Pen([System.Drawing.Color]::Red, 3)
-                $g.DrawLine($pen1, $leftMargin, $script:currentY, $rightMargin, $script:currentY)
-                $g.DrawLine($pen2, $leftMargin, $script:currentY + 4, $rightMargin, $script:currentY + 4)
-                $script:currentY += 15
-
-                # 发文字号（靠右）
-                if ($docNumStr) {
-                    $numFont = New-Object System.Drawing.Font("FangSong", 16)
-                    $numSize = $g.MeasureString($docNumStr, $numFont)
-                    $g.DrawString($docNumStr, $numFont, [System.Drawing.Brushes]::Black, $rightMargin - $numSize.Width, $script:currentY)
-                    $script:currentY += 30
-                }
-
-                # 标题（居中，二号小标宋）
-                $titleFont = New-Object System.Drawing.Font("SimSun", 22, [System.Drawing.FontStyle]::Bold)
-                $titleSize = $g.MeasureString($title, $titleFont)
-                $titleX = $leftMargin + ($pageWidth - $titleSize.Width) / 2
-                $g.DrawString($title, $titleFont, [System.Drawing.Brushes]::Black, $titleX, $script:currentY)
-                $script:currentY += $titleSize.Height + 10
-
-                # 主送机关（三号仿宋，顶格）
-                $receiverFont = New-Object System.Drawing.Font("FangSong", 16)
-                $g.DrawString("$receiver：", $receiverFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
-                $script:currentY += 28
-            }
-
-            # 正文（三号仿宋，首行缩进2字符）
-            $bodyFont = New-Object System.Drawing.Font("FangSong", 16)
-            $charWidth = $g.MeasureString("国", $bodyFont).Width
-            $indentX = $charWidth * 2  # 首行缩进2个汉字
-
-            while ($script:currentParagraph -lt $paragraphs.Count) {
-                $para = $paragraphs[$script:currentParagraph]
-                if ([string]::IsNullOrWhiteSpace($para)) {
-                    $script:currentParagraph++
-                    continue
-                }
-
-                # 绘制段落（首行缩进）
-                $isFirstLine = $true
-                $remainingText = $para
-
-                while ($remainingText) {
-                    if ($script:currentY + 28 -gt $bottomMargin) {
-                        $e.HasMorePages = $true
-                        return
-                    }
-
-                    $availWidth = if ($isFirstLine) { $pageWidth - $indentX } else { $pageWidth }
-                    $lineText = ""
-                    $testText = ""
-
-                    for ($i = 0; $i -lt $remainingText.Length; $i++) {
-                        $testText += $remainingText[$i]
-                        $testSize = $g.MeasureString($testText, $bodyFont)
-                        if ($testSize.Width -gt $availWidth) {
-                            break
-                        }
-                        $lineText = $testText
-                    }
-
-                    if ($lineText.Length -eq 0) {
-                        $lineText = $remainingText[0].ToString()
-                    }
-
-                    $drawX = if ($isFirstLine) { $leftMargin + $indentX } else { $leftMargin }
-                    $g.DrawString($lineText, $bodyFont, [System.Drawing.Brushes]::Black, $drawX, $script:currentY)
-                    $script:currentY += 28
-                    $isFirstLine = $false
-                    $remainingText = $remainingText.Substring($lineText.Length)
-                }
-
-                $script:currentParagraph++
-            }
-
-            # 版记部分（落款、日期、附件、联系人、抄送）
-            $footerFont = New-Object System.Drawing.Font("FangSong", 16)
-            $smallFont = New-Object System.Drawing.Font("FangSong", 14)
-
-            # 空行
-            $script:currentY += 20
-
-            # 落款机关（靠右）
-            if ($signer) {
-                $signerSize = $g.MeasureString($signer, $footerFont)
-                $g.DrawString($signer, $footerFont, [System.Drawing.Brushes]::Black, $rightMargin - $signerSize.Width, $script:currentY)
-                $script:currentY += 28
-            }
-
-            # 日期（靠右）
-            if ($dateStr) {
-                $dateSize = $g.MeasureString($dateStr, $footerFont)
-                $g.DrawString($dateStr, $footerFont, [System.Drawing.Brushes]::Black, $rightMargin - $dateSize.Width, $script:currentY)
-                $script:currentY += 28
-            }
-
-            # 附件说明
-            if (-not [string]::IsNullOrWhiteSpace($attach)) {
-                $script:currentY += 10
-                $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
-                $g.DrawLine($pen, $leftMargin, $script:currentY, $rightMargin, $script:currentY)
-                $script:currentY += 5
-                $g.DrawString("附件：$attach", $smallFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
-                $script:currentY += 24
-            }
-
-            # 联系人和电话
-            if (-not [string]::IsNullOrWhiteSpace($contact) -or -not [string]::IsNullOrWhiteSpace($phone)) {
-                $contactText = ""
-                if (-not [string]::IsNullOrWhiteSpace($contact)) { $contactText += "联系人：$contact" }
-                if (-not [string]::IsNullOrWhiteSpace($phone)) { $contactText += "    联系电话：$phone" }
-                $g.DrawString($contactText, $smallFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
-                $script:currentY += 24
-            }
-
-            # 抄送
-            if (-not [string]::IsNullOrWhiteSpace($cc)) {
-                $script:currentY += 10
-                $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
-                $g.DrawLine($pen, $leftMargin, $script:currentY, $rightMargin, $script:currentY)
-                $script:currentY += 5
-                $g.DrawString("抄送：$cc", $smallFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
-            }
-        })
-
-        $printDoc.Print()
-        $printDoc.Dispose()
-
-        [System.Windows.Forms.MessageBox]::Show("公文已生成！`n`n文件位置：$outputPath", "完成", "OK", "Information")
-        Start-Process $outputPath
-    }
-}
-
-# ============ HTML 备用方案 ============
-function Generate-Document-Html {
-    $docPrefix = $txtDocPrefix.Text
-    $docYear = $txtDocYear.Text
-    $docNum = $txtDocNum.Text
-    $secret = $comboSecret.SelectedItem
-    $urgent = $comboUrgent.SelectedItem
-    $sender = $txtSender.Text
-    $receiver = $txtReceiver.Text
-    $title = $txtTitle.Text
-    $body = $txtBody.Text
-    $signer = $txtSigner.Text
-    $dateStr = $datePicker.Value.ToString("yyyy年MM月dd日")
-    $attach = $txtAttach.Text
-    $contact = $txtContact.Text
-    $phone = $txtPhone.Text
-    $cc = $txtCC.Text
-
-    # 验证必填项
-    if ([string]::IsNullOrWhiteSpace($sender)) {
-        [System.Windows.Forms.MessageBox]::Show("请填写发文机关！", "提示", "OK", "Warning")
-        return
-    }
-    if ([string]::IsNullOrWhiteSpace($receiver)) {
-        [System.Windows.Forms.MessageBox]::Show("请填写主送机关！", "提示", "OK", "Warning")
-        return
-    }
-    if ([string]::IsNullOrWhiteSpace($title)) {
-        [System.Windows.Forms.MessageBox]::Show("请填写公文标题！", "提示", "OK", "Warning")
-        return
-    }
-    if ([string]::IsNullOrWhiteSpace($body)) {
-        [System.Windows.Forms.MessageBox]::Show("请填写公文正文！", "提示", "OK", "Warning")
-        return
-    }
-
-    # 构建文号
-    $docNumStr = ""
-    if (-not [string]::IsNullOrWhiteSpace($docPrefix) -and -not [string]::IsNullOrWhiteSpace($docNum)) {
-        $docNumStr = "$docPrefix[$docYear]$docNum号"
+        $docNumStr = "$docPrefix〔$docYear〕$docNum号"
     }
 
     # 处理正文段落
     $bodyHtml = $body -replace "`r`n", "`n"
     $paragraphs = $bodyHtml -split "`n"
-    $bodyHtml = ""
+    $bodyContent = ""
     foreach ($para in $paragraphs) {
         if (-not [string]::IsNullOrWhiteSpace($para)) {
-            $bodyHtml += "<p>$para</p>`n"
+            $bodyContent += "        <p>$para</p>`n"
         }
     }
 
@@ -538,97 +287,209 @@ function Generate-Document-Html {
 <meta charset="UTF-8">
 <title>$title</title>
 <style>
-@page { size: A4; margin: 0; }
-body { font-family: FangSong, 'FangSong_GB2312', SimSun, serif; font-size: 16pt; line-height: 28pt; color: #000; margin: 0; padding: 0; }
-.page { width: 210mm; min-height: 297mm; margin: 0; padding: 37mm 26mm 35mm 28mm; box-sizing: border-box; }
-@media print {
-    body { margin: 0; padding: 0; }
-    .page { margin: 0; padding: 37mm 26mm 35mm 28mm; }
-}
-.header { text-align: center; margin-bottom: 20pt; }
-.secret-urgent { text-align: left; font-size: 16pt; margin-bottom: 10pt; }
-.secret-tag { color: #000; font-weight: bold; margin-right: 20pt; }
-.urgent-tag { color: #000; font-weight: bold; }
-.sender-name { font-family: 'FZXiaoBiaoSong-B05S', 'SimSun', serif; font-size: 36pt; color: #FF0000; font-weight: bold; letter-spacing: 2pt; margin: 20pt 0; white-space: nowrap; width: fit-content; max-width: 100%; transform-origin: center; }
-.red-line { border: none; margin: 15pt 0; position: relative; height: 4px; }
-.red-line::before { content: ''; position: absolute; top: 0; left: 0; right: 0; border-top: 1px solid #FF0000; }
-.red-line::after { content: ''; position: absolute; top: 3px; left: 0; right: 0; border-top: 3px solid #FF0000; }
-.doc-number { font-size: 16pt; text-align: right; margin: 10pt 0; }
-.receiver { font-size: 16pt; margin: 20pt 0 10pt 0; }
-.title { font-family: 'FZXiaoBiaoSong-B05S', 'SimSun', serif; font-size: 22pt; text-align: center; margin: 20pt 0; font-weight: bold; }
-.body-text { font-size: 16pt; margin: 10pt 0; line-height: 28pt; }
-.body-text p { text-indent: 2em; margin: 0; }
-.footer { margin-top: 40pt; }
-.signer { text-align: right; font-size: 16pt; margin: 5pt 0; }
-.date { text-align: right; font-size: 16pt; margin: 5pt 0; }
-.attachment { font-size: 14pt; margin: 20pt 0 10pt 0; border-top: 1px solid #000; padding-top: 10pt; font-family: FangSong, 'FangSong_GB2312', SimSun, serif; }
-.cc { font-size: 14pt; margin: 10pt 0; border-top: 1px solid #000; padding-top: 10pt; font-family: FangSong, 'FangSong_GB2312', SimSun, serif; }
-.contact-info { font-size: 14pt; margin: 10pt 0; font-family: FangSong, 'FangSong_GB2312', SimSun, serif; }
+    @page {
+        size: A4;
+        margin: 0;
+    }
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    body {
+        font-family: FangSong, 'FangSong_GB2312', SimSun, serif;
+        font-size: 16pt;
+        line-height: 28pt;
+        color: #000;
+    }
+    .page {
+        width: 210mm;
+        min-height: 297mm;
+        padding: 37mm 26mm 35mm 28mm;
+    }
+    @media print {
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .page {
+            margin: 0;
+            padding: 37mm 26mm 35mm 28mm;
+        }
+    }
+    .secret-urgent {
+        text-align: left;
+        font-size: 16pt;
+        margin-bottom: 10pt;
+    }
+    .secret-tag {
+        font-weight: bold;
+        margin-right: 20pt;
+    }
+    .urgent-tag {
+        font-weight: bold;
+    }
+    .sender-name {
+        font-family: 'FZXiaoBiaoSong-B05S', SimSun, serif;
+        font-size: 36pt;
+        color: #FF0000;
+        font-weight: bold;
+        letter-spacing: 2pt;
+        text-align: center;
+        margin: 20pt 0;
+        white-space: nowrap;
+    }
+    .red-line {
+        margin: 15pt 0;
+        position: relative;
+        height: 5px;
+    }
+    .red-line::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        border-top: 1px solid #FF0000;
+    }
+    .red-line::after {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: 0;
+        right: 0;
+        border-top: 3px solid #FF0000;
+    }
+    .doc-number {
+        font-size: 16pt;
+        text-align: right;
+        margin: 10pt 0;
+    }
+    .title {
+        font-family: 'FZXiaoBiaoSong-B05S', SimSun, serif;
+        font-size: 22pt;
+        text-align: center;
+        margin: 20pt 0;
+        font-weight: bold;
+    }
+    .receiver {
+        font-size: 16pt;
+        margin: 10pt 0;
+    }
+    .body-text {
+        font-size: 16pt;
+        margin: 10pt 0;
+        line-height: 28pt;
+    }
+    .body-text p {
+        text-indent: 2em;
+        margin: 0;
+    }
+    .footer {
+        margin-top: 40pt;
+    }
+    .signer {
+        text-align: right;
+        font-size: 16pt;
+        margin: 5pt 0;
+    }
+    .date {
+        text-align: right;
+        font-size: 16pt;
+        margin: 5pt 0;
+    }
+    .attachment {
+        font-size: 14pt;
+        margin: 20pt 0 10pt 0;
+        border-top: 1px solid #000;
+        padding-top: 10pt;
+    }
+    .contact-info {
+        font-size: 14pt;
+        margin: 10pt 0;
+    }
+    .contact-info span {
+        margin-right: 30pt;
+    }
+    .cc {
+        font-size: 14pt;
+        margin: 10pt 0;
+        border-top: 1px solid #000;
+        padding-top: 10pt;
+    }
 </style>
 </head>
 <body>
 <div class="page">
-    <div class="header">
 "@
 
+    # 密级和紧急程度
     if ($secret -ne "无" -or $urgent -ne "无") {
-        $html += "`n        <div class=`"secret-urgent`">`n"
+        $html += "    <div class=`"secret-urgent`">`n"
         if ($secret -ne "无") {
-            $html += "            <span class=`"secret-tag`">★ $secret</span>`n"
+            $html += "        <span class=`"secret-tag`">★ $secret</span>`n"
         }
         if ($urgent -ne "无") {
-            $html += "            <span class=`"urgent-tag`">[$urgent]</span>`n"
+            $html += "        <span class=`"urgent-tag`">[$urgent]</span>`n"
         }
-        $html += "        </div>`n"
+        $html += "    </div>`n"
     }
 
-    $html += @"
-        <div class="sender-name" id="senderName">$sender</div>
-        <script>
-        (function(){
-            var el = document.getElementById('senderName');
-            var maxWidth = el.parentElement.offsetWidth - 20;
-            var fontSize = 36;
-            el.style.fontSize = fontSize + 'pt';
-            while (el.scrollWidth > maxWidth && fontSize > 12) {
-                fontSize -= 0.5;
-                el.style.fontSize = fontSize + 'pt';
-            }
-        })();
-        </script>
-        <hr class="red-line">
-"@
+    # 发文机关标志
+    $html += "    <div class=`"sender-name`">$sender</div>`n"
+    $html += "    <div class=`"red-line`"></div>`n"
 
+    # 发文字号
     if ($docNumStr) {
-        $html += "        <div class=`"doc-number`">$docNumStr</div>`n"
+        $html += "    <div class=`"doc-number`">$docNumStr</div>`n"
     }
 
-    $html += "    </div>`n`n"
-    $html += "    <div class=`"title`">$title</div>`n`n"
-    $html += "    <div class=`"receiver`">$receiver：</div>`n`n"
-    $html += "    <div class=`"body-text`">$bodyHtml</div>`n`n"
+    # 标题
+    $html += "    <div class=`"title`">$title</div>`n"
+
+    # 主送机关
+    $html += "    <div class=`"receiver`">$receiver：</div>`n"
+
+    # 正文
+    $html += "    <div class=`"body-text`">`n"
+    $html += $bodyContent
+    $html += "    </div>`n"
+
+    # 版记
     $html += "    <div class=`"footer`">`n"
     $html += "        <div class=`"signer`">$signer</div>`n"
     $html += "        <div class=`"date`">$dateStr</div>`n"
 
+    # 附件
     if (-not [string]::IsNullOrWhiteSpace($attach)) {
         $html += "        <div class=`"attachment`">附件：$attach</div>`n"
     }
+
+    # 联系人
     if (-not [string]::IsNullOrWhiteSpace($contact) -or -not [string]::IsNullOrWhiteSpace($phone)) {
         $html += "        <div class=`"contact-info`">`n"
         if (-not [string]::IsNullOrWhiteSpace($contact)) {
             $html += "            <span>联系人：$contact</span>`n"
         }
         if (-not [string]::IsNullOrWhiteSpace($phone)) {
-            $html += "            <span style=`"margin-left: 30pt;`">联系电话：$phone</span>`n"
+            $html += "            <span>联系电话：$phone</span>`n"
         }
         $html += "        </div>`n"
     }
+
+    # 抄送
     if (-not [string]::IsNullOrWhiteSpace($cc)) {
         $html += "        <div class=`"cc`">抄送：$cc</div>`n"
     }
 
-    $html += "    </div>`n</div>`n</body>`n</html>"
+    $html += "    </div>`n"
+    $html += "</div>`n</body>`n</html>"
 
     # 保存文件
     $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
@@ -638,7 +499,7 @@ body { font-family: FangSong, 'FangSong_GB2312', SimSun, serif; font-size: 16pt;
 
     if ($saveDialog.ShowDialog() -eq "OK") {
         $html | Out-File -FilePath $saveDialog.FileName -Encoding UTF8
-        [System.Windows.Forms.MessageBox]::Show("公文已生成！`n`n文件位置：$($saveDialog.FileName)", "完成", "OK", "Information")
+        [System.Windows.Forms.MessageBox]::Show("公文已生成！`n`n文件位置：$($saveDialog.FileName)`n`n提示：打印时请在浏览器中按 Ctrl+P，取消勾选"页眉和页脚"", "完成", "OK", "Information")
         Start-Process $saveDialog.FileName
     }
 }
@@ -663,8 +524,7 @@ function Clear-Form {
 }
 
 # ============ 事件绑定 ============
-$btnGeneratePDF.Add_Click({ Generate-Document })
-$btnGenerateHTML.Add_Click({ Generate-Document-Html })
+$btnGenerate.Add_Click({ Generate-Document })
 $btnClear.Add_Click({ Clear-Form })
 
 # ============ 启动 ============
