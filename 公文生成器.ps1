@@ -499,7 +499,7 @@ function Generate-Document {
 
     if ($saveDialog.ShowDialog() -eq "OK") {
         $html | Out-File -FilePath $saveDialog.FileName -Encoding UTF8
-        [System.Windows.Forms.MessageBox]::Show("公文已生成！`n`n文件位置：$($saveDialog.FileName)`n`n提示：打印时请在浏览器中按 Ctrl+P，取消勾选"页眉和页脚"", "完成", "OK", "Information")
+        [System.Windows.Forms.MessageBox]::Show("公文已生成！`n`n文件位置：$($saveDialog.FileName)`n`n提示：打印时请在浏览器中按 Ctrl+P，取消勾选页眉和页脚", "完成", "OK", "Information")
         Start-Process $saveDialog.FileName
     }
 }
