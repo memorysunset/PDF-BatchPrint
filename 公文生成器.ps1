@@ -1,6 +1,13 @@
 ﻿Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName System.Drawing.Printing
+
+# 加载 System.Drawing.Printing
+try {
+    Add-Type -AssemblyName System.Drawing.Printing
+} catch {
+    # 如果加载失败，尝试从 .NET Framework 加载
+    Add-Type -Path "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Drawing.dll" -ErrorAction SilentlyContinue
+}
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
