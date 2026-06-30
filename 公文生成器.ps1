@@ -270,7 +270,9 @@ body { font-family: FangSong, SimSun, serif; font-size: 16pt; line-height: 28pt;
 .secret-tag { color: #000; font-weight: bold; margin-right: 20pt; }
 .urgent-tag { color: #000; font-weight: bold; }
 .sender-name { font-family: SimHei, sans-serif; font-size: 36pt; color: #FF0000; font-weight: bold; letter-spacing: 2pt; margin: 20pt 0; white-space: nowrap; width: fit-content; max-width: 100%; transform-origin: center; }
-.red-line { border: none; border-top: 2px solid #FF0000; margin: 15pt 0; }
+.red-line { border: none; margin: 15pt 0; position: relative; height: 4px; }
+.red-line::before { content: ''; position: absolute; top: 0; left: 0; right: 0; border-top: 1px solid #FF0000; }
+.red-line::after { content: ''; position: absolute; top: 3px; left: 0; right: 0; border-top: 3px solid #FF0000; }
 .doc-number { font-size: 16pt; text-align: center; margin: 10pt 0; }
 .receiver { font-size: 16pt; margin: 20pt 0 10pt 0; }
 .title { font-family: SimHei, sans-serif; font-size: 22pt; text-align: center; margin: 20pt 0; font-weight: bold; }
