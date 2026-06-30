@@ -269,7 +269,7 @@ body { font-family: FangSong, SimSun, serif; font-size: 16pt; line-height: 28pt;
 .secret-urgent { text-align: left; font-size: 16pt; margin-bottom: 10pt; }
 .secret-tag { color: #000; font-weight: bold; margin-right: 20pt; }
 .urgent-tag { color: #000; font-weight: bold; }
-.sender-name { font-family: SimHei, sans-serif; font-size: 36pt; color: #FF0000; font-weight: bold; letter-spacing: 2pt; margin: 20pt 0; }
+.sender-name { font-family: SimHei, sans-serif; font-size: 36pt; color: #FF0000; font-weight: bold; letter-spacing: 2pt; margin: 20pt 0; white-space: nowrap; width: fit-content; max-width: 100%; transform-origin: center; }
 .red-line { border: none; border-top: 2px solid #FF0000; margin: 15pt 0; }
 .doc-number { font-size: 16pt; text-align: center; margin: 10pt 0; }
 .receiver { font-size: 16pt; margin: 20pt 0 10pt 0; }
@@ -300,7 +300,19 @@ body { font-family: FangSong, SimSun, serif; font-size: 16pt; line-height: 28pt;
     }
 
     $html += @"
-        <div class="sender-name">$sender</div>
+        <div class="sender-name" id="senderName">$sender</div>
+        <script>
+        (function(){
+            var el = document.getElementById('senderName');
+            var maxWidth = el.parentElement.offsetWidth - 20;
+            var fontSize = 36;
+            el.style.fontSize = fontSize + 'pt';
+            while (el.scrollWidth > maxWidth && fontSize > 12) {
+                fontSize -= 0.5;
+                el.style.fontSize = fontSize + 'pt';
+            }
+        })();
+        </script>
         <hr class="red-line">
 "@
 
