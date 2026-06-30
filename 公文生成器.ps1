@@ -286,9 +286,13 @@ function Generate-Document {
 <meta charset="UTF-8">
 <title>$title</title>
 <style>
-@page { size: A4; margin: 37mm 26mm 35mm 28mm; }
+@page { size: A4; margin: 0; }
 body { font-family: FangSong, 'FangSong_GB2312', SimSun, serif; font-size: 16pt; line-height: 28pt; color: #000; margin: 0; padding: 0; }
-.page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 37mm 26mm 35mm 28mm; box-sizing: border-box; }
+.page { width: 210mm; min-height: 297mm; margin: 0; padding: 37mm 26mm 35mm 28mm; box-sizing: border-box; }
+@media print {
+    body { margin: 0; padding: 0; }
+    .page { margin: 0; padding: 37mm 26mm 35mm 28mm; }
+}
 .header { text-align: center; margin-bottom: 20pt; }
 .secret-urgent { text-align: left; font-size: 16pt; margin-bottom: 10pt; }
 .secret-tag { color: #000; font-weight: bold; margin-right: 20pt; }
