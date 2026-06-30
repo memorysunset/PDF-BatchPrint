@@ -263,26 +263,26 @@ function Generate-Document {
 <title>$title</title>
 <style>
 @page { size: A4; margin: 37mm 26mm 35mm 28mm; }
-body { font-family: FangSong, SimSun, serif; font-size: 16pt; line-height: 28pt; color: #000; margin: 0; padding: 0; }
+body { font-family: FangSong, 'FangSong_GB2312', SimSun, serif; font-size: 16pt; line-height: 28pt; color: #000; margin: 0; padding: 0; }
 .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 37mm 26mm 35mm 28mm; box-sizing: border-box; }
 .header { text-align: center; margin-bottom: 20pt; }
 .secret-urgent { text-align: left; font-size: 16pt; margin-bottom: 10pt; }
 .secret-tag { color: #000; font-weight: bold; margin-right: 20pt; }
 .urgent-tag { color: #000; font-weight: bold; }
-.sender-name { font-family: SimHei, sans-serif; font-size: 36pt; color: #FF0000; font-weight: bold; letter-spacing: 2pt; margin: 20pt 0; white-space: nowrap; width: fit-content; max-width: 100%; transform-origin: center; }
+.sender-name { font-family: 'FZXiaoBiaoSong-B05S', 'SimSun', serif; font-size: 36pt; color: #FF0000; font-weight: bold; letter-spacing: 2pt; margin: 20pt 0; white-space: nowrap; width: fit-content; max-width: 100%; transform-origin: center; }
 .red-line { border: none; margin: 15pt 0; position: relative; height: 4px; }
 .red-line::before { content: ''; position: absolute; top: 0; left: 0; right: 0; border-top: 1px solid #FF0000; }
 .red-line::after { content: ''; position: absolute; top: 3px; left: 0; right: 0; border-top: 3px solid #FF0000; }
 .doc-number { font-size: 16pt; text-align: center; margin: 10pt 0; }
 .receiver { font-size: 16pt; margin: 20pt 0 10pt 0; }
-.title { font-family: SimHei, sans-serif; font-size: 22pt; text-align: center; margin: 20pt 0; font-weight: bold; }
+.title { font-family: 'FZXiaoBiaoSong-B05S', 'SimSun', serif; font-size: 22pt; text-align: center; margin: 20pt 0; font-weight: bold; }
 .body-text { font-size: 16pt; margin: 10pt 0; line-height: 28pt; }
 .body-text p { text-indent: 2em; margin: 0; }
 .footer { margin-top: 40pt; }
 .signer { text-align: right; font-size: 16pt; margin: 5pt 0; }
 .date { text-align: right; font-size: 16pt; margin: 5pt 0; }
-.attachment { font-size: 16pt; margin: 20pt 0 10pt 0; border-top: 1px solid #000; padding-top: 10pt; }
-.cc { font-size: 16pt; margin: 10pt 0; border-top: 1px solid #000; padding-top: 10pt; }
+.attachment { font-size: 14pt; margin: 20pt 0 10pt 0; border-top: 1px solid #000; padding-top: 10pt; font-family: FangSong, 'FangSong_GB2312', SimSun, serif; }
+.cc { font-size: 14pt; margin: 10pt 0; border-top: 1px solid #000; padding-top: 10pt; font-family: FangSong, 'FangSong_GB2312', SimSun, serif; }
 </style>
 </head>
 <body>
