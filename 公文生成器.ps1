@@ -1,12 +1,13 @@
 ﻿Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Drawing.Printing
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 # ============ 主窗口 ============
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "中国公文生成器"
-$form.Size = New-Object System.Drawing.Size(700, 610)
+$form.Size = New-Object System.Drawing.Size(700, 620)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
@@ -210,17 +211,26 @@ $txtCC.Size = New-Object System.Drawing.Size(590, 23)
 $form.Controls.Add($txtCC)
 
 # ============ 按钮 ============
-$btnGenerate = New-Object System.Windows.Forms.Button
-$btnGenerate.Location = New-Object System.Drawing.Point(220, 520)
-$btnGenerate.Size = New-Object System.Drawing.Size(120, 35)
-$btnGenerate.Text = "生成公文"
-$btnGenerate.BackColor = [System.Drawing.Color]::FromArgb(200, 30, 30)
-$btnGenerate.ForeColor = [System.Drawing.Color]::White
-$btnGenerate.FlatStyle = "Flat"
-$form.Controls.Add($btnGenerate)
+$btnGeneratePDF = New-Object System.Windows.Forms.Button
+$btnGeneratePDF.Location = New-Object System.Drawing.Point(150, 520)
+$btnGeneratePDF.Size = New-Object System.Drawing.Size(120, 35)
+$btnGeneratePDF.Text = "生成PDF"
+$btnGeneratePDF.BackColor = [System.Drawing.Color]::FromArgb(200, 30, 30)
+$btnGeneratePDF.ForeColor = [System.Drawing.Color]::White
+$btnGeneratePDF.FlatStyle = "Flat"
+$form.Controls.Add($btnGeneratePDF)
+
+$btnGenerateHTML = New-Object System.Windows.Forms.Button
+$btnGenerateHTML.Location = New-Object System.Drawing.Point(280, 520)
+$btnGenerateHTML.Size = New-Object System.Drawing.Size(120, 35)
+$btnGenerateHTML.Text = "生成HTML"
+$btnGenerateHTML.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 215)
+$btnGenerateHTML.ForeColor = [System.Drawing.Color]::White
+$btnGenerateHTML.FlatStyle = "Flat"
+$form.Controls.Add($btnGenerateHTML)
 
 $btnClear = New-Object System.Windows.Forms.Button
-$btnClear.Location = New-Object System.Drawing.Point(360, 520)
+$btnClear.Location = New-Object System.Drawing.Point(410, 520)
 $btnClear.Size = New-Object System.Drawing.Size(120, 35)
 $btnClear.Text = "清空重填"
 $btnClear.FlatStyle = "Flat"
@@ -268,7 +278,242 @@ function Generate-Document {
         $docNumStr = "$docPrefix[$docYear]$docNum号"
     }
 
-    # 处理正文换行和段落缩进
+    # 处理正文段落
+    $bodyLines = $body -replace "`r`n", "`n"
+    $paragraphs = $bodyLines -split "`n"
+
+    # 保存文件
+    $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
+    $saveDialog.Filter = "PDF文件|*.pdf|所有文件|*.*"
+    $saveDialog.FileName = "公文_$title"
+    $saveDialog.DefaultExt = "pdf"
+
+    if ($saveDialog.ShowDialog() -eq "OK") {
+        $outputPath = $saveDialog.FileName
+
+        # 使用 PrintDocument 生成 PDF
+        $printDoc = New-Object System.Drawing.Printing.PrintDocument
+        $printDoc.PrinterSettings.PrinterName = "Microsoft Print to PDF"
+        $printDoc.PrinterSettings.PrintToFile = $true
+        $printDoc.PrinterSettings.PrintFileName = $outputPath
+
+        # 页面设置 (A4, 单位：百分之一英寸)
+        $printDoc.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize("A4", 827, 1169)
+        $printDoc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(110, 102, 146, 138)  # 左28mm 右26mm 上37mm 下35mm
+
+        # 当前绘制位置
+        $script:currentY = 0
+        $script:currentParagraph = 0
+        $script:isFirstPage = $true
+
+        $printDoc.add_PrintPage({
+            param($sender, $e)
+            $g = $e.Graphics
+            $leftMargin = $e.MarginBounds.Left
+            $topMargin = $e.MarginBounds.Top
+            $rightMargin = $e.MarginBounds.Right
+            $bottomMargin = $e.MarginBounds.Bottom
+            $pageWidth = $e.MarginBounds.Width
+
+            if ($script:isFirstPage) {
+                $script:isFirstPage = $false
+                $script:currentY = $topMargin
+
+                # 密级和紧急程度
+                if ($secret -ne "无" -or $urgent -ne "无") {
+                    $secretText = ""
+                    if ($secret -ne "无") { $secretText += "★ $secret  " }
+                    if ($urgent -ne "无") { $secretText += "[$urgent]" }
+                    $secretFont = New-Object System.Drawing.Font("FangSong", 14)
+                    $g.DrawString($secretText, $secretFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
+                    $script:currentY += 30
+                }
+
+                # 发文机关标志（红色，居中）
+                $senderFont = New-Object System.Drawing.Font("SimSun", 36, [System.Drawing.FontStyle]::Bold)
+                $senderSize = $g.MeasureString($sender, $senderFont)
+                $senderX = $leftMargin + ($pageWidth - $senderSize.Width) / 2
+                $g.DrawString($sender, $senderFont, [System.Drawing.Brushes]::Red, $senderX, $script:currentY)
+                $script:currentY += $senderSize.Height + 10
+
+                # 红线（一细一粗）
+                $pen1 = New-Object System.Drawing.Pen([System.Drawing.Color]::Red, 1)
+                $pen2 = New-Object System.Drawing.Pen([System.Drawing.Color]::Red, 3)
+                $g.DrawLine($pen1, $leftMargin, $script:currentY, $rightMargin, $script:currentY)
+                $g.DrawLine($pen2, $leftMargin, $script:currentY + 4, $rightMargin, $script:currentY + 4)
+                $script:currentY += 15
+
+                # 发文字号（靠右）
+                if ($docNumStr) {
+                    $numFont = New-Object System.Drawing.Font("FangSong", 16)
+                    $numSize = $g.MeasureString($docNumStr, $numFont)
+                    $g.DrawString($docNumStr, $numFont, [System.Drawing.Brushes]::Black, $rightMargin - $numSize.Width, $script:currentY)
+                    $script:currentY += 30
+                }
+
+                # 标题（居中，二号小标宋）
+                $titleFont = New-Object System.Drawing.Font("SimSun", 22, [System.Drawing.FontStyle]::Bold)
+                $titleSize = $g.MeasureString($title, $titleFont)
+                $titleX = $leftMargin + ($pageWidth - $titleSize.Width) / 2
+                $g.DrawString($title, $titleFont, [System.Drawing.Brushes]::Black, $titleX, $script:currentY)
+                $script:currentY += $titleSize.Height + 10
+
+                # 主送机关（三号仿宋，顶格）
+                $receiverFont = New-Object System.Drawing.Font("FangSong", 16)
+                $g.DrawString("$receiver：", $receiverFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
+                $script:currentY += 28
+            }
+
+            # 正文（三号仿宋，首行缩进2字符）
+            $bodyFont = New-Object System.Drawing.Font("FangSong", 16)
+            $charWidth = $g.MeasureString("国", $bodyFont).Width
+            $indentX = $charWidth * 2  # 首行缩进2个汉字
+
+            while ($script:currentParagraph -lt $paragraphs.Count) {
+                $para = $paragraphs[$script:currentParagraph]
+                if ([string]::IsNullOrWhiteSpace($para)) {
+                    $script:currentParagraph++
+                    continue
+                }
+
+                # 绘制段落（首行缩进）
+                $isFirstLine = $true
+                $remainingText = $para
+
+                while ($remainingText) {
+                    if ($script:currentY + 28 -gt $bottomMargin) {
+                        $e.HasMorePages = $true
+                        return
+                    }
+
+                    $availWidth = if ($isFirstLine) { $pageWidth - $indentX } else { $pageWidth }
+                    $lineText = ""
+                    $testText = ""
+
+                    for ($i = 0; $i -lt $remainingText.Length; $i++) {
+                        $testText += $remainingText[$i]
+                        $testSize = $g.MeasureString($testText, $bodyFont)
+                        if ($testSize.Width -gt $availWidth) {
+                            break
+                        }
+                        $lineText = $testText
+                    }
+
+                    if ($lineText.Length -eq 0) {
+                        $lineText = $remainingText[0].ToString()
+                    }
+
+                    $drawX = if ($isFirstLine) { $leftMargin + $indentX } else { $leftMargin }
+                    $g.DrawString($lineText, $bodyFont, [System.Drawing.Brushes]::Black, $drawX, $script:currentY)
+                    $script:currentY += 28
+                    $isFirstLine = $false
+                    $remainingText = $remainingText.Substring($lineText.Length)
+                }
+
+                $script:currentParagraph++
+            }
+
+            # 版记部分（落款、日期、附件、联系人、抄送）
+            $footerFont = New-Object System.Drawing.Font("FangSong", 16)
+            $smallFont = New-Object System.Drawing.Font("FangSong", 14)
+
+            # 空行
+            $script:currentY += 20
+
+            # 落款机关（靠右）
+            if ($signer) {
+                $signerSize = $g.MeasureString($signer, $footerFont)
+                $g.DrawString($signer, $footerFont, [System.Drawing.Brushes]::Black, $rightMargin - $signerSize.Width, $script:currentY)
+                $script:currentY += 28
+            }
+
+            # 日期（靠右）
+            if ($dateStr) {
+                $dateSize = $g.MeasureString($dateStr, $footerFont)
+                $g.DrawString($dateStr, $footerFont, [System.Drawing.Brushes]::Black, $rightMargin - $dateSize.Width, $script:currentY)
+                $script:currentY += 28
+            }
+
+            # 附件说明
+            if (-not [string]::IsNullOrWhiteSpace($attach)) {
+                $script:currentY += 10
+                $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
+                $g.DrawLine($pen, $leftMargin, $script:currentY, $rightMargin, $script:currentY)
+                $script:currentY += 5
+                $g.DrawString("附件：$attach", $smallFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
+                $script:currentY += 24
+            }
+
+            # 联系人和电话
+            if (-not [string]::IsNullOrWhiteSpace($contact) -or -not [string]::IsNullOrWhiteSpace($phone)) {
+                $contactText = ""
+                if (-not [string]::IsNullOrWhiteSpace($contact)) { $contactText += "联系人：$contact" }
+                if (-not [string]::IsNullOrWhiteSpace($phone)) { $contactText += "    联系电话：$phone" }
+                $g.DrawString($contactText, $smallFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
+                $script:currentY += 24
+            }
+
+            # 抄送
+            if (-not [string]::IsNullOrWhiteSpace($cc)) {
+                $script:currentY += 10
+                $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
+                $g.DrawLine($pen, $leftMargin, $script:currentY, $rightMargin, $script:currentY)
+                $script:currentY += 5
+                $g.DrawString("抄送：$cc", $smallFont, [System.Drawing.Brushes]::Black, $leftMargin, $script:currentY)
+            }
+        })
+
+        $printDoc.Print()
+        $printDoc.Dispose()
+
+        [System.Windows.Forms.MessageBox]::Show("公文已生成！`n`n文件位置：$outputPath", "完成", "OK", "Information")
+        Start-Process $outputPath
+    }
+}
+
+# ============ HTML 备用方案 ============
+function Generate-Document-Html {
+    $docPrefix = $txtDocPrefix.Text
+    $docYear = $txtDocYear.Text
+    $docNum = $txtDocNum.Text
+    $secret = $comboSecret.SelectedItem
+    $urgent = $comboUrgent.SelectedItem
+    $sender = $txtSender.Text
+    $receiver = $txtReceiver.Text
+    $title = $txtTitle.Text
+    $body = $txtBody.Text
+    $signer = $txtSigner.Text
+    $dateStr = $datePicker.Value.ToString("yyyy年MM月dd日")
+    $attach = $txtAttach.Text
+    $contact = $txtContact.Text
+    $phone = $txtPhone.Text
+    $cc = $txtCC.Text
+
+    # 验证必填项
+    if ([string]::IsNullOrWhiteSpace($sender)) {
+        [System.Windows.Forms.MessageBox]::Show("请填写发文机关！", "提示", "OK", "Warning")
+        return
+    }
+    if ([string]::IsNullOrWhiteSpace($receiver)) {
+        [System.Windows.Forms.MessageBox]::Show("请填写主送机关！", "提示", "OK", "Warning")
+        return
+    }
+    if ([string]::IsNullOrWhiteSpace($title)) {
+        [System.Windows.Forms.MessageBox]::Show("请填写公文标题！", "提示", "OK", "Warning")
+        return
+    }
+    if ([string]::IsNullOrWhiteSpace($body)) {
+        [System.Windows.Forms.MessageBox]::Show("请填写公文正文！", "提示", "OK", "Warning")
+        return
+    }
+
+    # 构建文号
+    $docNumStr = ""
+    if (-not [string]::IsNullOrWhiteSpace($docPrefix) -and -not [string]::IsNullOrWhiteSpace($docNum)) {
+        $docNumStr = "$docPrefix[$docYear]$docNum号"
+    }
+
+    # 处理正文段落
     $bodyHtml = $body -replace "`r`n", "`n"
     $paragraphs = $bodyHtml -split "`n"
     $bodyHtml = ""
@@ -411,7 +656,8 @@ function Clear-Form {
 }
 
 # ============ 事件绑定 ============
-$btnGenerate.Add_Click({ Generate-Document })
+$btnGeneratePDF.Add_Click({ Generate-Document })
+$btnGenerateHTML.Add_Click({ Generate-Document-Html })
 $btnClear.Add_Click({ Clear-Form })
 
 # ============ 启动 ============
